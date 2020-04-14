@@ -18,6 +18,7 @@ $mcasApiKeySecretName = $ENV:mcasApiKeySecretName
 $searchTimeFrameHours = 3
 $workSpaceName = $ENV:workSpaceName
 $workSpaceKeySecret = $ENV:workSpaceKeySecret
+$mcasUrl = $ENV:mcasUrl # e.g. yourtenantname.eu2.portal.cloudappsecurity.com
 
 
 #Secret for workspace key from KeyVault
@@ -133,7 +134,7 @@ $filter = @"
 }
 "@
 
-$result = Invoke-WebRequest -Method Post -Uri "https://makeitnoblelabs.eu2.portal.cloudappsecurity.com/api/v1/activities/" -Headers $authHeader -body $filter
+$result = Invoke-WebRequest -Method Post -Uri "https://$mcasurl/api/v1/activities/" -Headers $authHeader -body $filter
 $sharings = ($result.Content -creplace 'Level','Level_2' -creplace 'EventName','EventName_2' | ConvertFrom-Json -depth 50).data
 $shareReport = @()
 Foreach ($sharedObj in $sharings) {
