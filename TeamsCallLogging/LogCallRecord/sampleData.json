@@ -1,0 +1,22 @@
+{
+    "RawBody":{
+        "value": [
+                {
+                    "subscriptionId":"607514dd-d913-4ab2-a873-e3828f21c869",
+                    "clientState":"secretClientValue",
+                    "changeType":"created",
+                    "resource":"communications/callRecords/f2b3542c-3a55-4002-bb7b-e09ba0d936da",
+                    "subscriptionExpirationDateTime":"2020-11-24T16:54:39-08:00",
+                    "resourceData":{
+                        "oDataType":"#microsoft.graph.callrecord",
+                        "oDataId":"communications/callRecords/f2b3542c-3a55-4002-bb7b-e09ba0d936da",
+                        "id":"f2b3542c-3a55-4002-bb7b-e09ba0d936da"
+                    },
+                    "tenantId":"5001edc7-82fa-40a6-8ce0-90e3843dc979"
+                }
+                
+        ]
+        
+    }
+}
+

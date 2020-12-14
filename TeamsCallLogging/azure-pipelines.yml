@@ -1,0 +1,101 @@
+trigger:
+  branches:
+    include:
+    - master
+
+# Set global variables
+variables:
+  connectionName: p-spi-AzDevopsSentinel2Eventhub
+  resourceGroupName: p-li-rgr-core-01
+  functionAppName: p-fap-Sentinel2Eventhub-01
+  EventHubNameSpaceName: p-li-ens-lgtgroup01
+  EventHubName: p-li-ehu-lgtgroup01
+  EventHubPolicyName: SendListenKey
+  EventHubKeySecret: p-li-ens-lgtgroup01
+  KeyVaultName: p-li-kva-core-01
+  workSpaceResourceGroup: p-li-rgr-core-01
+  workSpaceName: p-li-ala-core-01
+  workSpaceKeySecret: p-li-ala-core-01-key1
+  logAnalyticsServicePrincipalId: "a7a54800-dfa3-4aaf-90a2-02f5667e8219"
+  logAnalyticsServicePrincipalSecret: "p-spi-sentinelreader"
+  numberOfRawEvents: "5"
+
+stages:
+- stage: InfraDeployment1
+  jobs:
+  - job: DeployFunctionApp
+    pool:
+      vmImage: 'ubuntu-latest'
+    continueOnError: true
+    steps: 
+    - task: AzureCLI@2
+      displayName: "Deploy Function App"
+      inputs:
+        azureSubscription: '$(connectionName)'
+        scriptType: 'pscore'
+        scriptLocation: 'inlineScript'
+        inlineScript: |
+          az group deployment create `
+              --name FunctionApp `
+              --resource-group $(resourceGroupName) `
+              --template-file ./armtemplates/functionApp.json `
+              --parameters ./armtemplates/functionApp.parameters.json
+        failOnStandardError: false      
+
+- stage: BuildFunctionApp
+  displayName: Build Function App
+  dependsOn: InfraDeployment1
+  condition: succeeded()
+  variables: 
+    workingDirectory: '$(System.DefaultWorkingDirectory)/functionapp'
+
+  jobs:
+  - job: Build
+    displayName: Build
+    pool:
+      vmImage: vs2017-win2016
+
+    steps:
+    - powershell: |
+        if (Test-Path "extensions.csproj") {
+            dotnet build extensions.csproj --output ./$(workingDirectory)/bin
+        }
+      displayName: 'Build extensions'
+
+    - task: ArchiveFiles@2
+      displayName: 'Archive files'
+      inputs:
+        rootFolderOrFile: $(workingDirectory)
+        includeRootFolder: false
+        archiveType: zip
+        archiveFile: $(Build.ArtifactStagingDirectory)/$(Build.BuildId).zip
+        replaceExistingArchive: true
+
+    - publish: $(Build.ArtifactStagingDirectory)/$(Build.BuildId).zip
+      artifact: drop
+
+- stage: DeployFunctionApp
+  displayName: Deploy Function App
+  dependsOn: BuildFunctionApp
+  condition: succeeded()
+
+  jobs:
+  - deployment: Deploy
+    displayName: Deploy Function App
+    environment: $(functionAppName)
+    pool:
+      vmImage: vs2017-win2016
+
+    strategy:
+      runOnce:
+        deploy:
+          steps:
+          - task: AzureFunctionApp@1
+            displayName: 'Azure functions app deploy'
+            inputs:
+              azureSubscription: '$(connectionName)'
+              appType: functionApp
+              appName: $(functionAppName)
+              package: '$(Pipeline.Workspace)/drop/$(Build.BuildId).zip'
+              appSettings: '-EventHubNameSpaceName $(EventHubNameSpaceName) -EventHubName $(EventHubName) -EventHubPolicyName $(EventHubPolicyName) -EventHubKeySecret $(EventHubKeySecret) -KeyVaultName $(KeyVaultName) -workSpaceResourceGroup $(workSpaceResourceGroup) -workSpaceName $(workSpaceName) -workSpaceKeySecret $(workSpaceKeySecret) -EventHubApiVersion 2014-01 -SecurityInsightsApiVersion 2019-01-01-preview -logAnalyticsServicePrincipalId $(logAnalyticsServicePrincipalId) -logAnalyticsServicePrincipalSecret $(logAnalyticsServicePrincipalSecret) -numberOfRawEvents $(numberOfRawEvents)'
+
